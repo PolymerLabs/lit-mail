@@ -1,0 +1,35 @@
+<!doctype html>
+
+<html>
+
+  <head>
+    <title>LitMail</title>
+
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1">
+
+    <link href="https://fonts.googleapis.com/css?family=Work+Sans:300,400,500,600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons&display=block" rel="stylesheet">
+
+    <style>
+      body, html {
+        margin: 0;
+        height: 100%;
+        font-family: 'Work Sans', sans-serif;
+        font-weight: lighter;
+      }
+    </style>
+
+    <script>
+      // Disable adoptedStyleSheets for development
+      delete Document.prototype.adoptedStyleSheets;
+    </script>
+
+    <script type="module" src="./lib/litmail-app.js"></script>
+  </head>
+
+  <body>
+    <litmail-app></litmail-app>
+  </body>
+
+</html>

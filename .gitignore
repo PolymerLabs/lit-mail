@@ -1,0 +1,4 @@
+.DS_Store
+/node_modules
+/lib
+/src/lib/credentials.ts

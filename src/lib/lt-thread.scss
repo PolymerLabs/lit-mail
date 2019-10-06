@@ -1,0 +1,5 @@
+@import "@material/card/mdc-card";
+
+:host {
+  @include mdc-card-core-styles;
+}
