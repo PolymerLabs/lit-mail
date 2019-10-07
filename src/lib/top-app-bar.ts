@@ -1,4 +1,4 @@
-import {css, customElement} from 'lit-element';
+import {css, customElement, CSSResult} from 'lit-element';
 import {TopAppBar as MWCTopAppBar} from '@material/mwc-top-app-bar';
 
 @customElement('top-app-bar')
@@ -10,5 +10,5 @@ export class TopAppBar extends MWCTopAppBar {
         position: absolute;
       }
     `,
-  ];
+  ] as any as CSSResult;
 }
