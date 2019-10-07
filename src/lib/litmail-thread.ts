@@ -1,5 +1,6 @@
 import {LitElement, css, html, customElement, property, PropertyValues} from 'lit-element';
 import {unsafeHTML} from 'lit-html/directives/unsafe-html.js';
+import {classMap} from 'lit-html/directives/class-map';
 
 import '@material/mwc-icon';
 import {DateTime} from 'luxon';
@@ -55,15 +56,23 @@ export class LitMailThread extends LitElement {
       font-size: .9em;
     }
     header > span {
+      min-width: 10%;
       white-space: nowrap;
       text-overflow: ellipsis;
       overflow: hidden;
+    }
+    header > span.loading {
+      border-radius: 4px;
     }
     h5 {
       font-size: 1.25em;
       height: calc(1.25em * 1.2);
       font-weight: bold;
       margin: 12px 0;
+    }
+    h5.loading {
+      width: 75%;
+      border-radius: 8px;
     }
     :host(:not([open])) h5 {
       white-space: nowrap;
@@ -141,11 +150,11 @@ export class LitMailThread extends LitElement {
     return html`
       <div class="mdc-card">
         <header>
-          <span class="from">${metadata?.from}</span>
-          &mdash;
-          <span class="date">${dateFormatted}</span>
+          <span class="from ${classMap({loading: !metadata?.subject})}">${metadata?.from}</span>
+          &nbsp;&mdash;&nbsp;
+          <span class="date ${classMap({loading: !metadata?.subject})}">${dateFormatted}</span>
         </header>
-        <h5 class="subject loading">${'' ?? metadata?.subject}</h5>
+        <h5 class="subject ${classMap({loading: !metadata?.subject})}">${metadata?.subject}</h5>
         ${this.open ? html`
           <div class="messages">
           ${this.fullThread?.messages?.map((message, i) => html`
