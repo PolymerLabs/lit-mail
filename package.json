@@ -11,6 +11,7 @@
     "@types/gapi.auth2": "0.0.50",
     "@types/gapi.client.gmail": "^1.0.1",
     "@types/luxon": "^1.15.2",
+    "@types/page": "^1.8.0",
     "command-line-args": "^5.1.1",
     "command-line-usage": "^6.0.2",
     "node-sass-import": "^2.0.1",

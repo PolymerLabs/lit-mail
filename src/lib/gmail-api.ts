@@ -125,7 +125,6 @@ export class GMailClient {
     if (labels === undefined) {
       return;
     }
-    console.log({labels});
     const fullLabels = await Promise.all(labels.map(async (label) => {
       if (label.id === undefined) {
         return label;

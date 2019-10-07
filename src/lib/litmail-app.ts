@@ -4,6 +4,7 @@
 import {LitElement, css, html, customElement, property, query, PropertyValues} from 'lit-element';
 import {nothing} from 'lit-html';
 import {ifDefined} from 'lit-html/directives/if-defined.js';
+import page from 'page';
 
 import '@material/mwc-drawer';
 import '@material/mwc-fab';
@@ -142,12 +143,18 @@ export class LitMailApp extends LitElement {
 
   constructor() {
     super();
+    console.log('litmail-app');
+
+    this._installRoutes();
 
     this.shadowRoot!.addEventListener('litmail-nav-select', (e: Event) => {
       const target = e.target as LitMailNavMenuItem;
       const labelId = target.labelId!;
-      console.log('switching to label', labelId);
-      this.currentLabelIds = [labelId];
+      if (labelId === 'INBOX') {
+        page(`/inbox`);
+      } else {
+        page(`/inbox/${labelId}`);
+      }
     });
 
     if (this.DEBUG) {
@@ -163,6 +170,25 @@ export class LitMailApp extends LitElement {
       })();
     }
   }
+
+  private _installRoutes() {
+    console.log('_installRoutes');
+    page.redirect('/', '/inbox');
+    page('/inbox', this._inboxRoute);
+    page('/inbox/:label', this._inboxRoute);
+    page('*', this._notFoundRoute);
+    page();
+  }
+
+  private _inboxRoute = (context: PageJS.Context) => {
+    console.log('_inboxRoute');
+    const labelId: string = context.params['label'] ?? 'INBOX';
+    this.currentLabelIds = [labelId];
+  };
+
+  private _notFoundRoute = (context: PageJS.Context) => {
+    console.log(`not found: ${context.path}`);
+  };
 
   private _setSignedIn(signedIn: boolean) {
     if (signedIn === this._isSignedIn) {

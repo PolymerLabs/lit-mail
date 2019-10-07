@@ -19,6 +19,7 @@ export class LitMailThread extends LitElement {
       box-sizing: border-box;
       margin: 8px;
       cursor: pointer;
+      line-height: 1.2;
     }
     :host .mdc-card {
       box-sizing: border-box;
@@ -30,6 +31,24 @@ export class LitMailThread extends LitElement {
     }
     mwc-icon {
       margin-right: 12px;
+    }    
+    @keyframes placeload {
+      0% {
+        background-position: -468px 0;
+      }
+      100% {
+        background-position: 468px 0;
+      }
+    }
+    .loading {
+      animation-duration: 1s;
+      animation-fill-mode: forwards;
+      animation-iteration-count: infinite;
+      animation-name: placeload;
+      animation-timing-function: linear;
+      background: linear-gradient(to right, #eeeeee 8%, #dddddd 18%, #eeeeee 33%);
+      background-size: 1200px 104px;
+      position: relative;
     }
     header {
       display: flex;
@@ -42,6 +61,7 @@ export class LitMailThread extends LitElement {
     }
     h5 {
       font-size: 1.25em;
+      height: calc(1.25em * 1.2);
       font-weight: bold;
       margin: 12px 0;
     }
@@ -125,7 +145,7 @@ export class LitMailThread extends LitElement {
           &mdash;
           <span class="date">${dateFormatted}</span>
         </header>
-        <h5 class="subject">${metadata?.subject}</h5>
+        <h5 class="subject loading">${'' ?? metadata?.subject}</h5>
         ${this.open ? html`
           <div class="messages">
           ${this.fullThread?.messages?.map((message, i) => html`
