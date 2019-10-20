@@ -3,11 +3,17 @@ import {unsafeHTML} from 'lit-html/directives/unsafe-html.js';
 import {classMap} from 'lit-html/directives/class-map';
 
 import '@material/mwc-icon';
+import './icon-button-toggle';
 import {DateTime} from 'luxon';
 
 import { Label, Thread, GMailClient, getThreadMetadata } from './gmail-api.js';
 import {style} from './lt-thread-css.js';
 import './litmail-message.js';
+import { CachedTask } from './cached-task.js';
+
+const labelMapTask = (host: LitMailThread) => new CachedTask(host,
+    (client: GMailClient) => client?.getLabelMap(),
+    () => [host.client]);
 
 @customElement('litmail-thread')
 export class LitMailThread extends LitElement {
@@ -84,6 +90,15 @@ export class LitMailThread extends LitElement {
       text-overflow: ellipsis;
       overflow: hidden;
     }
+    .labels {
+      display: flex;
+      align-items: center;
+      line-height: 1;
+      font-weight: bold;
+    }
+    .labels > * {
+      margin-right: 6px;
+    }
   `];
 
   @property({attribute: false})
@@ -122,6 +137,12 @@ export class LitMailThread extends LitElement {
   })
   open = false;
 
+  private _labelMapTask = labelMapTask(this);
+
+  private get _labelMap() {
+    return this._labelMapTask.get();
+  }
+
   constructor() {
     super();
     this.addEventListener('click', () => {
@@ -133,19 +154,26 @@ export class LitMailThread extends LitElement {
     if (changedProperties.has('thread')) {
       this.fullThread = undefined;
       if (this.thread!.id) {
-        this.client!.getFullThread(this.thread!.id).then((fullThread) => {
+        const promise = this.client!.getFullThread(this.thread!.id).then((fullThread) => {
           this.fullThread = fullThread;
         });
+        const pendingEvent = new CustomEvent('pending-state', {
+          composed: true,
+          bubbles: true,
+          detail: {promise}
+        });
+        this.dispatchEvent(pendingEvent);
       }
     }
     super.update(changedProperties);
   }
 
   render() {
-    const metadata = this.fullThread ? getThreadMetadata(this.fullThread) : undefined;
+    const metadata = this.fullThread && getThreadMetadata(this.fullThread);
     const dateString = metadata?.date
     const date = dateString && DateTime.fromRFC2822(dateString);
     const dateFormatted = date && formatDate(date);
+    const starred = !!metadata?.labelIds.has('STARRED');
 
     return html`
       <div class="mdc-card">
@@ -155,6 +183,15 @@ export class LitMailThread extends LitElement {
           <span class="date ${classMap({loading: !metadata?.subject})}">${dateFormatted}</span>
         </header>
         <h5 class="subject ${classMap({loading: !metadata?.subject})}">${metadata?.subject}</h5>
+        <div class="labels">
+          <icon-button-toggle onIcon="star" offIcon="star_border" .on=${starred}></icon-button-toggle>
+          ${this._labelMap && metadata && Array.from(metadata?.labelIds)
+            .map((labelId) => this._labelMap!.get(labelId))
+            .filter((l) => l?.messageListVisibility)
+            .map((label) => html`
+              <span class="label">${label!.name}</span>
+            `)}
+        </div>
         ${this.open ? html`
           <div class="messages">
           ${this.fullThread?.messages?.map((message, i) => html`

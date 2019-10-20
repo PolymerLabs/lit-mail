@@ -2,6 +2,7 @@
 /// <reference types="gapi.client.gmail" />
 
 import { API_KEY, CLIENT_ID } from './credentials.js';
+import { UpdatingElement } from 'lit-element';
 
 // Array of API discovery doc URLs for APIs used by the quickstart
 const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/gmail/v1/rest"];
@@ -29,9 +30,8 @@ export interface ThreadMetadata {
   to?: string;
   date?: string;
   subject?: string;
+  labelIds: Set<string>;
 }
-
-const metadataHeaders = ['From', 'To', 'Date', 'Subject'];
 
 const FROM_HEADER_REGEX = new RegExp(/"?(.*?)"?\s?<(.*)>/);
 
@@ -105,6 +105,7 @@ export class GMailClient {
     return new GMailClient();
   }
 
+
   get isSignedIn() {
     return gapi.auth2.getAuthInstance().isSignedIn.get();
   }
@@ -117,15 +118,52 @@ export class GMailClient {
     return gapi.auth2.getAuthInstance().currentUser.get();
   }
 
-  async getLabels() {
+  private _getLabelsPromise?: Promise<Label[]>;
+  private _fullLabels?: Label[];
+  private _labelMap?: Map<string, Label>;
+  private _labelMapPromise?: Promise<Map<string, Label>>;
+
+  getLabelMapTask(host: UpdatingElement) {
+    if (this._labelMap !== undefined) {
+      return this._labelMap;
+    }
+    this.getLabelMap().then(() => host.requestUpdate());
+    return;
+  }
+
+  async getLabelMap(): Promise<Map<string, Label>> {
+    if (this._labelMap !== undefined) {
+      return this._labelMap;
+    }
+    if (this._labelMapPromise === undefined) {
+      this._labelMapPromise = this.getLabels().then(() => {
+        this._labelMap = new Map<string, Label>();
+        for (const label of this._fullLabels!) {
+          this._labelMap.set(label.id!, label);
+        }
+        return this._labelMap!;
+      });
+    }
+    return this._labelMapPromise;
+  }
+
+  async getLabels(): Promise<Label[]> {
+    if (this._getLabelsPromise === undefined) {
+      this._getLabelsPromise = this._getLabels();
+      this._fullLabels = await this._getLabelsPromise;
+    }
+    return this._getLabelsPromise;
+  }
+
+  private async _getLabels() {
     const response = await gapi.client.users.labels.list({
       userId: 'me',
     });
     const labels = response.result.labels;
     if (labels === undefined) {
-      return;
+      return [];
     }
-    const fullLabels = await Promise.all(labels.map(async (label) => {
+    return await Promise.all(labels.map(async (label) => {
       if (label.id === undefined) {
         return label;
       }
@@ -135,7 +173,6 @@ export class GMailClient {
       });
       return response.result;
     }));
-    return fullLabels;
   }
 
   async getThreads(options?: {labelIds?: string[]}) {
@@ -168,19 +205,34 @@ export const getHeaderMap = (headers?: MessagePartHeader[]) => {
   return map;
 };
 
-export const getThreadMetadata = (thread: Thread): ThreadMetadata|undefined => {
-  const message = thread.messages?.[0];
-  if (message === undefined || message.payload === undefined
-      || message.payload.headers === undefined) {
-    return;
-  }
-  const headers = message.payload.headers;
-  const metadata: ThreadMetadata = {};
-  for (const header of headers) {
-    if (metadataHeaders.includes(header.name!)) {
-      metadata[header.name!.toLowerCase() as keyof ThreadMetadata] = header.value;
+export const getThreadMetadata = (thread: Thread): ThreadMetadata => {
+  const metadata: ThreadMetadata = {
+    labelIds: new Set(),
+  };
+  // Get the subject from the first message so we don't include "Re:"
+  const firstMessage = thread.messages?.[0];
+  const firstMessageHeaders = getHeaderMap(firstMessage?.payload?.headers);
+  metadata.subject = firstMessageHeaders.get('subject');
+
+  // Get the rest from the last message so we display the most recent date and
+  // to list
+  const lastMessage = thread.messages?.[thread.messages.length - 1];
+  const lastMessageHeaders = getHeaderMap(lastMessage?.payload?.headers);
+  metadata.date = lastMessageHeaders.get('date');
+  metadata.from = lastMessageHeaders.get('from');
+  metadata.to = lastMessageHeaders.get('to');
+
+  if (thread.messages) {
+    for (const message of thread.messages) {
+      if (message.labelIds) {
+        for (const labelId of message.labelIds) {
+          metadata.labelIds.add(labelId);
+        }
+      }
     }
   }
+
+  // TODO: from should be a list
   return metadata;
 };
 

@@ -10,6 +10,7 @@ import '@material/mwc-drawer';
 import '@material/mwc-fab';
 import '@material/mwc-icon';
 import '@material/mwc-icon-button';
+import '@material/mwc-linear-progress';
 import './top-app-bar.js';
 import './litmail-nav-menu.js';
 import './litmail-nav-menu-item.js';
@@ -21,9 +22,10 @@ import { GMailClient, Thread, GoogleUser, Label, BasicProfile } from './gmail-ap
 // Type-only imports
 import { LitMailNavMenuItem } from './litmail-nav-menu-item.js';
 import { LitMailNavMenu } from './litmail-nav-menu.js';
+import { PendingContainer } from './pending-container.js';
 
 @customElement('litmail-app')
-export class LitMailApp extends LitElement {
+export class LitMailApp extends PendingContainer(LitElement) {
 
   static styles = css`
     :host {
@@ -54,6 +56,13 @@ export class LitMailApp extends LitElement {
       border-radius: 50%;
       width: 24px;
       height: 24px;
+    }
+    mwc-linear-progress {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
     }
   `;
 
@@ -141,6 +150,9 @@ export class LitMailApp extends LitElement {
   @property({attribute: false})
   currentLabelIds = ['INBOX'];
 
+  @property({attribute: false})
+  currentView: 'inbox' | 'message' = 'inbox';
+
   constructor() {
     super();
     console.log('litmail-app');
@@ -210,30 +222,45 @@ export class LitMailApp extends LitElement {
     this._gmailClient!.getLabels().then((labels) => {
       this.labels = labels;
     })
-    this._gmailClient!.getThreads({labelIds: this.currentLabelIds})
-      .then((threads) => {
-        this.threads = threads;
-      });
+    this._getThreads();
     this.requestUpdate();
   }
 
   update(changedProperties: PropertyValues) {
     if (changedProperties.has('currentLabelIds')) {
-      console.log('fetching threads for ', this.currentLabelIds);
-      this._gmailClient!.getThreads({labelIds: this.currentLabelIds})
-      .then((threads) => {
-        this.threads = threads;
-      });
+      this._getThreads();
     }
     super.update(changedProperties);
   }
 
+  _getThreads() {
+    console.log('fetching threads for ', this.currentLabelIds);
+    const promise = this._gmailClient!.getThreads({labelIds: this.currentLabelIds})
+      .then((threads) => {
+        this.threads = threads;
+      });
+    const pendingEvent = new CustomEvent('pending-state', {
+      composed: true,
+      bubbles: true,
+      detail: {promise}
+    });
+    this.dispatchEvent(pendingEvent);
+  }
+
+  _renderCurrentView() {
+    switch (this.currentView) {
+      case 'inbox': return html`<litmail-inbox></litmail-inbox>`;
+      case 'message': return html`<litmail-message></litmail-message>`;
+    }
+  }
+
   render() {
+    console.log('litmail-app render', this.__hasPendingChildren);
     const visibleLabels = this.labels?.filter((l) => 
         l.type === 'user' && l.labelListVisibility === 'labelShow');
     return html`
       ${this.signedIn ? nothing : html`<litmail-login></litmail-login>`}
-
+      <mwc-linear-progress .progress=${this.__progress} .closed=${!this.__hasPendingChildren}></mwc-linear-progress>
       <mwc-drawer id="drawerPanel" type="" .narrow=${this.narrow}>
         <top-app-bar id="drawer-header" .scrollTarget=${this._drawerPanel}>
 
