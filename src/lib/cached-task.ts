@@ -17,7 +17,8 @@ export class CachedTask<T> {
   private _value?: T;
   private _promise?: Promise<void>;
 
-  constructor(host: UpdatingElement, compute: (...args: any[]) => Promise<T>, getDeps?: () => unknown[]) {
+  constructor(host: UpdatingElement, compute: (...args: any[]) => Promise<T>,
+      getDeps?: () => unknown[]) {
     this._host = host;
     this._compute = compute;
     this._getDeps = getDeps;
@@ -29,7 +30,7 @@ export class CachedTask<T> {
    * Triggers computation of the task if it hasn't been computed before, or if
    * the dependencies have changed.
    */
-  get(): T|undefined {
+  get value(): T|undefined {
     // By default, compute the first time
     let doCompute = this._promise === undefined;
 

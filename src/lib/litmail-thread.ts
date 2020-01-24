@@ -11,10 +11,6 @@ import {style} from './lt-thread-css.js';
 import './litmail-message.js';
 import { CachedTask } from './cached-task.js';
 
-const labelMapTask = (host: LitMailThread) => new CachedTask(host,
-    (client: GMailClient) => client?.getLabelMap(),
-    () => [host.client]);
-
 @customElement('litmail-thread')
 export class LitMailThread extends LitElement {
 
@@ -27,6 +23,7 @@ export class LitMailThread extends LitElement {
       margin: 8px;
       cursor: pointer;
       line-height: 1.2;
+      width: 100%;
     }
     :host .mdc-card {
       box-sizing: border-box;
@@ -137,17 +134,28 @@ export class LitMailThread extends LitElement {
   })
   open = false;
 
-  private _labelMapTask = labelMapTask(this);
+  private _labelMapTask = new CachedTask(this,
+      (client: GMailClient) => client?.getLabelMap(),
+      () => [this.client]);
 
-  private get _labelMap() {
-    return this._labelMapTask.get();
-  }
+  // private _labelMapTask = labelMapTask(this);
+
+  // private get _labelMap() {
+  //   return this._labelMapTask.value;
+  // }
 
   constructor() {
     super();
-    this.addEventListener('click', () => {
-      this.open = !this.open;
-    });
+    // this.addEventListener('click', () => {
+    //   // this.open = !this.open;
+    //   console.log('thread firing show-thread');
+    //   const event = new CustomEvent('show-thread', {
+    //     bubbles: true,
+    //     composed: true,
+    //     detail: {id: this.thread?.id}
+    //   });
+    //   this.dispatchEvent(event);
+    // });
   }
 
   update(changedProperties: PropertyValues) {
@@ -182,11 +190,13 @@ export class LitMailThread extends LitElement {
           &nbsp;&mdash;&nbsp;
           <span class="date ${classMap({loading: !metadata?.subject})}">${dateFormatted}</span>
         </header>
+        <a href=${`/thread/${this.thread?.id}`}>
         <h5 class="subject ${classMap({loading: !metadata?.subject})}">${metadata?.subject}</h5>
+        </a>
         <div class="labels">
           <icon-button-toggle onIcon="star" offIcon="star_border" .on=${starred}></icon-button-toggle>
-          ${this._labelMap && metadata && Array.from(metadata?.labelIds)
-            .map((labelId) => this._labelMap!.get(labelId))
+          ${this._labelMapTask.value && metadata && Array.from(metadata?.labelIds)
+            .map((labelId) => this._labelMapTask.value!.get(labelId))
             .filter((l) => l?.messageListVisibility)
             .map((label) => html`
               <span class="label">${label!.name}</span>

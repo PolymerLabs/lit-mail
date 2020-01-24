@@ -20,16 +20,16 @@ import { property as litProperty} from 'lit-element';
 export type Constructor<T> = {new(...args: any[]): T};
 
 export interface CustomElement extends HTMLElement {
-  connectedCallback?(): void;
-  disconnectedCallback?(): void;
+  connectedCallback(): void;
+  disconnectedCallback(): void;
 }
 
 // See: https://github.com/Polymer/lit-element/issues/288
 const property = litProperty as () => (proto: Object, name: string|Symbol) => void;
 
-// export interface PendingContainerMixin {
-//   __hasPendingChildren: boolean;
-// }
+export interface PendingContainerMixin {
+  __hasPendingChildren: boolean;
+}
 
 export const PendingContainer = <C extends Constructor<CustomElement>>(base: C) => {
   class PendingContainerMixin extends base {
@@ -48,19 +48,15 @@ export const PendingContainer = <C extends Constructor<CustomElement>>(base: C) 
 
     connectedCallback() {
       this.addEventListener('pending-state', this.__onPendingState);
-      if (super.connectedCallback) {
-        super.connectedCallback();
-      }
+      super.connectedCallback();
     }
 
     disconnectedCallback() {
-      this.addEventListener('pending-state', this.__onPendingState);
-      if (super.disconnectedCallback) {
-        super.disconnectedCallback();
-      }
+      this.removeEventListener('pending-state', this.__onPendingState);
+      super.disconnectedCallback();
     }
 
-    /* private */ async __onPendingState(e: Event) {
+    __onPendingState = async (e: Event) => {
       const promise = (e as CustomEvent).detail.promise;
       if (promise) {
         this.__hasPendingChildren = true;

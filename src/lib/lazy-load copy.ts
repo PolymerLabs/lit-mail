@@ -14,19 +14,34 @@
 
 import {directive, NodePart} from 'lit-html';
 
-const resolved = new WeakSet<NodePart>();
+interface LoadingState {
+  importPromise?: Promise<unknown>;
+  importResolved: boolean;
+}
 
-export const lazyLoad = directive((importPromise: Promise<unknown>, t: any) =>
-  (part: NodePart) => {
-    if (!resolved.has(part)) {
-      importPromise.then(() => resolved.add(part));
+const states = new WeakMap<NodePart, LoadingState>();
+
+export const lazyLoad = directive((doImport: () => Promise<unknown>, t: any) => {
+
+  return (part: NodePart) => {
+    let state = states.get(part);
+    if (state === undefined) {
+      state = {importResolved: false};
+      states.set(part, state);
+    }
+    if (state.importPromise === undefined) {
+      state.importPromise = doImport().then(() => {
+        state!.importResolved = true;
+      });
+    }
+    part.setValue(t);
+    if (!state.importResolved) {
       const event = new CustomEvent('pending-state', {
         composed: true,
         bubbles: true,
-        detail: {promise: importPromise}
+        detail: {promise: state.importPromise}
       });
       part.startNode.parentNode!.dispatchEvent(event);
     }
-    part.setValue(t);
-  }
-);
+  };
+});

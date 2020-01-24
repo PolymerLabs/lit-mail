@@ -6,7 +6,9 @@ import {nothing} from 'lit-html';
 import {ifDefined} from 'lit-html/directives/if-defined.js';
 import page from 'page';
 
-import '@material/mwc-drawer';
+// import '@material/mwc-drawer';
+import './litmail-drawer.js';
+
 import '@material/mwc-fab';
 import '@material/mwc-icon';
 import '@material/mwc-icon-button';
@@ -14,7 +16,7 @@ import '@material/mwc-linear-progress';
 import './top-app-bar.js';
 import './litmail-nav-menu.js';
 import './litmail-nav-menu-item.js';
-import './litmail-thread.js';
+// import './litmail-thread.js';
 import './litmail-login.js';
 
 import { GMailClient, Thread, GoogleUser, Label, BasicProfile } from './gmail-api.js';
@@ -23,6 +25,8 @@ import { GMailClient, Thread, GoogleUser, Label, BasicProfile } from './gmail-ap
 import { LitMailNavMenuItem } from './litmail-nav-menu-item.js';
 import { LitMailNavMenu } from './litmail-nav-menu.js';
 import { PendingContainer } from './pending-container.js';
+import { lazyLoad } from './lazy-load.js';
+export { PendingContainer, PendingContainerMixin } from './pending-container.js';
 
 @customElement('litmail-app')
 export class LitMailApp extends PendingContainer(LitElement) {
@@ -151,7 +155,13 @@ export class LitMailApp extends PendingContainer(LitElement) {
   currentLabelIds = ['INBOX'];
 
   @property({attribute: false})
-  currentView: 'inbox' | 'message' = 'inbox';
+  currentThreadId?: string;
+
+  @property({attribute: false})
+  currentThread?: Thread;
+
+  @property({attribute: false})
+  currentView: 'inbox' | 'thread' = 'inbox';
 
   constructor() {
     super();
@@ -188,7 +198,15 @@ export class LitMailApp extends PendingContainer(LitElement) {
     page.redirect('/', '/inbox');
     page('/inbox', this._inboxRoute);
     page('/inbox/:label', this._inboxRoute);
+    page('/thread/:id', this._threadRoute);
     page('*', this._notFoundRoute);
+
+    this.addEventListener('show-thread', (e) => {
+      console.log('show-thread');
+      const threadId = (e as any).detail.id;
+      page(`/thread/${threadId}`);
+    });
+
     page();
   }
 
@@ -196,6 +214,14 @@ export class LitMailApp extends PendingContainer(LitElement) {
     console.log('_inboxRoute');
     const labelId: string = context.params['label'] ?? 'INBOX';
     this.currentLabelIds = [labelId];
+    this.currentView = 'inbox';
+  };
+
+  private _threadRoute = (context: PageJS.Context) => {
+    const threadId: string = context.params['id'];
+    this.currentThreadId = threadId;
+    console.log('_threadRoute', threadId);
+    this.currentView = 'thread';
   };
 
   private _notFoundRoute = (context: PageJS.Context) => {
@@ -222,13 +248,20 @@ export class LitMailApp extends PendingContainer(LitElement) {
     this._gmailClient!.getLabels().then((labels) => {
       this.labels = labels;
     })
-    this._getThreads();
+    // this._getThreads();
     this.requestUpdate();
   }
 
   update(changedProperties: PropertyValues) {
-    if (changedProperties.has('currentLabelIds')) {
-      this._getThreads();
+    console.log('update', changedProperties, changedProperties.has('currentThreadId'));
+    if (this._isSignedIn) {
+      if (this.currentView === 'inbox' && (changedProperties.has('currentUser') || changedProperties.has('currentLabelIds'))) {
+        this._getThreads();
+      }
+      if (this.currentView === 'thread' && (changedProperties.has('currentUser') || changedProperties.has('currentThreadId'))) {
+        console.log('A');
+        this._getCurrentThread();
+      }
     }
     super.update(changedProperties);
   }
@@ -247,10 +280,52 @@ export class LitMailApp extends PendingContainer(LitElement) {
     this.dispatchEvent(pendingEvent);
   }
 
+  _getCurrentThread() {
+    console.log('_getCurrentThread', this.currentThreadId);
+    if (this.currentThreadId === undefined) {
+      this.currentThread = undefined;
+      return;
+    }
+    console.log('fetching thread', this.currentThreadId);
+    try {
+      const promise = this._gmailClient!.getFullThread(this.currentThreadId!)
+        .then((thread) => {
+          this.currentThread = thread;
+        });
+        const pendingEvent = new CustomEvent('pending-state', {
+          composed: true,
+          bubbles: true,
+          detail: {promise}
+        });
+        this.dispatchEvent(pendingEvent);
+    } catch (e) {
+      console.error(e.message);
+    }
+  }
+
   _renderCurrentView() {
     switch (this.currentView) {
-      case 'inbox': return html`<litmail-inbox></litmail-inbox>`;
-      case 'message': return html`<litmail-message></litmail-message>`;
+      case 'inbox': {
+        return lazyLoad(import('./litmail-thread.js'), this.threads?.map((thread) => html`
+          <litmail-thread
+              .client=${this._gmailClient}
+              .thread=${thread}
+              .labels=${this.labelMap}
+              .users=${this.users}>
+          </litmail-thread>
+        `));
+        }
+      case 'thread': {
+        return lazyLoad(import('./litmail-thread.js'), html`          
+          <litmail-thread
+            .open=${true}
+            .client=${this._gmailClient}
+            .thread=${this.currentThread}
+            .labels=${this.labelMap}
+            .users=${this.users}>
+          </litmail-thread>
+        `);
+      }
     }
   }
 
@@ -259,9 +334,9 @@ export class LitMailApp extends PendingContainer(LitElement) {
     const visibleLabels = this.labels?.filter((l) => 
         l.type === 'user' && l.labelListVisibility === 'labelShow');
     return html`
-      ${this.signedIn ? nothing : html`<litmail-login></litmail-login>`}
+      ${true || this.signedIn ? nothing : html`<litmail-login></litmail-login>`}
       <mwc-linear-progress .progress=${this.__progress} .closed=${!this.__hasPendingChildren}></mwc-linear-progress>
-      <mwc-drawer id="drawerPanel" type="" .narrow=${this.narrow}>
+      <litmail-drawer id="drawerPanel" type="" .narrow=${this.narrow}>
         <top-app-bar id="drawer-header" .scrollTarget=${this._drawerPanel}>
 
           <mwc-icon-button icon="arrow_left" slot="navigationIcon"></mwc-icon-button>
@@ -309,16 +384,9 @@ export class LitMailApp extends PendingContainer(LitElement) {
         </top-app-bar>
 
         <div slot="appContent">
-          ${this.threads?.map((thread) => html`
-            <litmail-thread
-                .client=${this._gmailClient}
-                .thread=${thread}
-                .labels=${this.labelMap}
-                .users=${this.users}>
-            </litmail-thread>
-          `)}
+          ${this._renderCurrentView()}
         </div>
-      </mwc-drawer>
+      </litmail-drawer>
     `;
   }
 

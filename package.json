@@ -4,8 +4,7 @@
   "private": true,
   "scripts": {
     "build": "tsc",
-    "serve": "polymer serve --port 8000",
-    "deploy": "./deploy.sh"
+    "serve": "es-dev-server --node-resolve --port=8000"
   },
   "devDependencies": {
     "@types/gapi.auth2": "0.0.50",
@@ -14,8 +13,8 @@
     "@types/page": "^1.8.0",
     "command-line-args": "^5.1.1",
     "command-line-usage": "^6.0.2",
+    "es-dev-server": "^1.36.2",
     "node-sass-import": "^2.0.1",
-    "polymer-cli": "^1.9.11",
     "sass": "^1.23.0",
     "typescript": "^3.7.0-dev.20191004"
   },
